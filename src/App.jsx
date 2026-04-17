@@ -51,8 +51,6 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 
-import "./index.css";
-
 // ============================================================
 // ১. Firebase Configuration
 // ============================================================
@@ -389,7 +387,7 @@ export default function App() {
               <Heart className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-base font-black leading-tight">
+              <h1 className="text-base font-red leading-tight">
                 {t.app_title}
               </h1>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
