@@ -39,7 +39,7 @@ const firebaseConfig =
   typeof __firebase_config !== "undefined"
     ? JSON.parse(__firebase_config)
     : {
-        apiKey: "", // runtime environment will provide this
+        apiKey: "AIzaSyBTGIGxrnCHU8Q3cO1I1MrPVKGfGudEsoI",
         authDomain: "shushastho-point.firebaseapp.com",
         projectId: "shushastho-point",
         storageBucket: "shushastho-point.firebasestorage.app",
