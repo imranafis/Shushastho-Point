@@ -1,36 +1,4 @@
-import React, { useState, useEffect } from "react";
-import {
-  Heart,
-  Activity,
-  User,
-  Users,
-  LogOut,
-  Plus,
-  Edit2,
-  Trash2,
-  ChevronDown,
-  ChevronUp,
-  Save,
-  X,
-  Scale,
-  Ruler,
-  Droplets,
-  Wind,
-  TrendingUp,
-  Calendar,
-  Lock,
-  UserPlus,
-  BarChart2,
-  AlertCircle,
-  CheckCircle,
-  Info,
-  Shield,
-  FileText,
-  Search,
-  Languages,
-} from "lucide-react";
-
-// Firebase এর প্রয়োজনীয় ফাংশনগুলো ইমপোর্ট করা
+import React, { useState, useEffect, useMemo } from "react";
 import { initializeApp } from "firebase/app";
 import {
   getAuth,
@@ -41,51 +9,51 @@ import {
 import {
   getFirestore,
   doc,
-  setDoc,
-  getDoc,
   collection,
-  query,
   onSnapshot,
   addDoc,
   updateDoc,
   deleteDoc,
+  query,
 } from "firebase/firestore";
+import {
+  Heart,
+  LogOut,
+  Search,
+  Edit2,
+  Trash2,
+  Check,
+  X,
+  ChevronLeft,
+  Scale,
+  Ruler,
+  Activity,
+  Droplets,
+  Save,
+  User as UserIcon,
+  LayoutDashboard,
+} from "lucide-react";
 
-// ============================================================
-// ১. Firebase Configuration
-// ============================================================
-// এই অংশটি বর্তমান এনভায়রনমেন্ট অনুযায়ী কাজ করবে।
-// পাবলিশ করার সময় আপনি myFirebaseConfig এর জায়গায় আপনার নিজের তথ্য বসাতে পারবেন।
+// --- Firebase Configuration ---
+const firebaseConfig =
+  typeof __firebase_config !== "undefined"
+    ? JSON.parse(__firebase_config)
+    : {
+        apiKey: "", // runtime environment will provide this
+        authDomain: "shushastho-point.firebaseapp.com",
+        projectId: "shushastho-point",
+        storageBucket: "shushastho-point.firebasestorage.app",
+        messagingSenderId: "339749833973",
+        appId: "1:339749833973:web:eaac52314af523ebad89bc",
+      };
 
-const getFirebaseConfig = () => {
-  // যদি ক্যানভাস এনভায়রনমেন্টে থাকে তবে সিস্টেম কনফিগ ব্যবহার করবে
-  if (typeof __firebase_config !== "undefined") {
-    return JSON.parse(__firebase_config);
-  }
-  // আপনার নিজের প্রোডাকশন কনফিগ এখানে বসান
-  return {
-    apiKey: "AIzaSyBTGIGxrnCHU8Q3cO1I1MrPVKGfGudEsoI",
-    authDomain: "shushastho-point.firebaseapp.com",
-    projectId: "shushastho-point",
-    storageBucket: "shushastho-point.firebasestorage.app",
-    messagingSenderId: "339749833973",
-    appId: "1:339749833973:web:eaac52314af523ebad89bc",
-    measurementId: "G-MWSVJCWTDV",
-  };
-};
-
-const appId =
-  typeof __app_id !== "undefined" ? __app_id : "shushastho-point-v1";
-const firebaseConfig = getFirebaseConfig();
-
-// Firebase ইনিশিয়ালাইজেশন
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const appId =
+  typeof __app_id !== "undefined" ? __app_id : "shushastho-point-v1";
 
-// ============================================================
-// TRANSLATIONS (বাংলা ও ইংরেজি ডিকশনারি)
-// ============================================================
+// --- Dictionary ---
 const dict = {
   bn: {
     app_title: "সুস্বাস্থ্য পয়েন্ট",
@@ -103,9 +71,11 @@ const dict = {
     name: "পুরো নাম",
     age: "বয়স",
     height: "উচ্চতা",
+    ft: "ফুট",
+    in: "ইঞ্চি",
     weight: "ওজন",
     bmi_status: "BMI স্ট্যাটাস",
-    bp: "রক্তচাপ",
+    bp: "ব্লাড প্রেশার",
     sugar: "সুগার",
     pulse: "হার্ট রেট",
     oxygen: "অক্সিজেন",
@@ -114,6 +84,7 @@ const dict = {
     cancel: "বাতিল",
     delete: "ডিলিট",
     edit: "এডিট",
+    update: "আপডেট",
     confirm_del: "ডিলিট নিশ্চিত করুন",
     search: "ইউজার খুঁজুন...",
     history: "রেকর্ড ইতিহাস",
@@ -126,6 +97,9 @@ const dict = {
     new_entry: "নতুন রেকর্ড যোগ করা হচ্ছে",
     dashboard: "ড্যাশবোর্ড",
     select: "নির্বাচন করুন",
+    actions: "অ্যাকশন",
+    back: "ফিরে যান",
+    success: "সফল হয়েছে",
   },
   en: {
     app_title: "Shushastho Point",
@@ -143,6 +117,8 @@ const dict = {
     name: "Full Name",
     age: "Age",
     height: "Height",
+    ft: "ft",
+    in: "in",
     weight: "Weight",
     bmi_status: "BMI Status",
     bp: "Blood Pressure",
@@ -154,6 +130,7 @@ const dict = {
     cancel: "Cancel",
     delete: "Delete",
     edit: "Edit",
+    update: "Update",
     confirm_del: "Confirm Delete",
     search: "Search users...",
     history: "Record History",
@@ -166,18 +143,30 @@ const dict = {
     new_entry: "Adding new record",
     dashboard: "Dashboard",
     select: "Select",
+    actions: "Actions",
+    back: "Back",
+    success: "Success",
   },
 };
 
-// ============================================================
-// UTILITIES
-// ============================================================
-const calcBMI = (weight, height) => {
-  if (!weight || !height || parseFloat(height) === 0) return null;
-  const h = parseFloat(height) / 100;
-  const w = parseFloat(weight);
-  return (w / (h * h)).toFixed(1);
+// --- Helper Functions ---
+const ftInToCm = (ft, inc) => {
+  const totalInches = parseFloat(ft || 0) * 12 + parseFloat(inc || 0);
+  return (totalInches * 2.54).toFixed(2);
 };
+
+const cmToFtIn = (cm) => {
+  if (!cm) return { ft: "", in: "" };
+  const totalInches = cm / 2.54;
+  const ft = Math.floor(totalInches / 12);
+  const inc = Math.round(totalInches % 12);
+  return { ft, in: inc };
+};
+
+const calcBMI = (w, h) =>
+  w && h && h > 0
+    ? (parseFloat(w) / (parseFloat(h) / 100) ** 2).toFixed(1)
+    : null;
 
 const getBMIInfo = (bmi, lang) => {
   if (!bmi)
@@ -186,64 +175,61 @@ const getBMIInfo = (bmi, lang) => {
       bg: "bg-slate-100",
       text: "text-slate-400",
       ring: "ring-slate-200",
-      badge: "bg-slate-100 text-slate-500",
     };
   const b = parseFloat(bmi);
-  const isEn = lang === "en";
   if (b < 18.5)
     return {
-      label: isEn ? "Underweight" : "ওজন কম",
+      label: lang === "en" ? "Underweight" : "ওজন কম",
       bg: "bg-sky-50",
       text: "text-sky-600",
       ring: "ring-sky-200",
-      badge: "bg-sky-100 text-sky-700",
     };
   if (b < 25)
     return {
-      label: isEn ? "Normal" : "স্বাভাবিক",
+      label: lang === "en" ? "Normal" : "স্বাভাবিক",
       bg: "bg-emerald-50",
       text: "text-emerald-600",
       ring: "ring-emerald-200",
-      badge: "bg-emerald-100 text-emerald-700",
     };
   if (b < 30)
     return {
-      label: isEn ? "Overweight" : "অতিরিক্ত ওজন",
+      label: lang === "en" ? "Overweight" : "অতিরিক্ত ওজন",
       bg: "bg-amber-50",
       text: "text-amber-600",
       ring: "ring-amber-200",
-      badge: "bg-amber-100 text-amber-700",
     };
   return {
-    label: isEn ? "Obesity" : "স্থূলতা",
+    label: lang === "en" ? "Obesity" : "স্থূলতা",
     bg: "bg-red-50",
     text: "text-red-600",
     ring: "ring-red-200",
-    badge: "bg-red-100 text-red-700",
   };
 };
 
-// ============================================================
-// MAIN APP COMPONENT
-// ============================================================
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [session, setSession] = useState(null);
   const [lang, setLang] = useState("bn");
   const [users, setUsers] = useState([]);
   const [records, setRecords] = useState([]);
-  const [session, setSession] = useState(null);
-  const [fbUser, setFbUser] = useState(null);
-  const [loginForm, setLoginForm] = useState({
-    username: "",
-    password: "",
-    error: "",
-  });
   const [loading, setLoading] = useState(true);
+  const [adminTab, setAdminTab] = useState("table");
+  const [userTab, setUserTab] = useState("dashboard");
+  const [adminSearch, setAdminSearch] = useState("");
+  const [viewingUserHistory, setViewingUserHistory] = useState(null);
+  const [editingRecordId, setEditingRecordId] = useState(null);
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    type: null,
+    id: null,
+  });
 
-  const t = dict[lang];
+  const t = useMemo(() => dict[lang], [lang]);
 
-  // ১. ফায়ারবেস অথেন্টিকেশন
+  // Initial Auth
   useEffect(() => {
-    const startAuth = async () => {
+    const initAuth = async () => {
       try {
         if (
           typeof __initial_auth_token !== "undefined" &&
@@ -254,23 +240,19 @@ export default function App() {
           await signInAnonymously(auth);
         }
       } catch (err) {
-        console.error("Firebase Auth failed:", err);
+        console.error("Auth Error:", err);
       }
     };
-    startAuth();
-
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setFbUser(u);
-      if (!u) setLoading(false);
-    });
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, setUser);
     return () => unsubscribe();
   }, []);
 
-  // ২. ফায়ারস্টোর থেকে রিয়েল-টাইম ডাটা সিঙ্ক
+  // Sync Firestore Data
   useEffect(() => {
-    if (!fbUser) return;
+    if (!user) return;
 
-    const usersCol = collection(
+    const usersRef = collection(
       db,
       "artifacts",
       appId,
@@ -278,20 +260,7 @@ export default function App() {
       "data",
       "users",
     );
-    const unsubUsers = onSnapshot(
-      usersCol,
-      (snapshot) => {
-        const uData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setUsers(uData);
-        setLoading(false);
-      },
-      (err) => console.error("Users Sync Error:", err),
-    );
-
-    const recordsCol = collection(
+    const recordsRef = collection(
       db,
       "artifacts",
       appId,
@@ -299,14 +268,20 @@ export default function App() {
       "data",
       "records",
     );
+
+    const unsubUsers = onSnapshot(
+      usersRef,
+      (snap) => {
+        setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      },
+      (err) => console.error("Users Sync Error:", err),
+    );
+
     const unsubRecords = onSnapshot(
-      recordsCol,
-      (snapshot) => {
-        const rData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setRecords(rData);
+      recordsRef,
+      (snap) => {
+        setRecords(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       },
       (err) => console.error("Records Sync Error:", err),
     );
@@ -315,47 +290,49 @@ export default function App() {
       unsubUsers();
       unsubRecords();
     };
-  }, [fbUser]);
+  }, [user]);
 
-  const handleLogin = () => {
-    const { username, password } = loginForm;
-    if (username === "admin" && password === "admin123") {
-      setSession({ role: "admin", username: "admin", name: t.admin_panel });
-      return;
+  // --- Actions ---
+  const handleLogin = (u, p) => {
+    if (u === "admin" && p === "admin123") {
+      setSession({ role: "admin", username: "admin", name: "Admin" });
+    } else {
+      const found = users.find((x) => x.username === u && x.password === p);
+      if (found) {
+        setSession({
+          role: "user",
+          userId: found.id,
+          username: found.username,
+          name: found.name,
+        });
+      } else {
+        return t.invalid_login;
+      }
     }
-    const found = users.find(
-      (u) => u.username === username && u.password === password,
-    );
-    if (found) {
-      setSession({
-        role: "user",
-        userId: found.id,
-        username: found.username,
-        name: found.name,
-      });
-      return;
-    }
-    setLoginForm((f) => ({ ...f, error: t.invalid_login }));
+    return null;
   };
 
   const handleLogout = () => setSession(null);
 
-  const handleUpdateProfile = async (userId, updatedData) => {
-    if (!fbUser) return;
-    try {
-      const userDoc = doc(
-        db,
-        "artifacts",
-        appId,
-        "public",
-        "data",
-        "users",
-        userId,
+  const handleDelete = async () => {
+    const { type, id } = confirmModal;
+    if (type === "user") {
+      await deleteDoc(
+        doc(db, "artifacts", appId, "public", "data", "users", id),
       );
-      await updateDoc(userDoc, updatedData);
-    } catch (e) {
-      console.error(e);
+      // Cleanup records for this user (Frontend filtering since we fetch all anyway)
+      const userRecords = records.filter((r) => r.userId === id);
+      for (const r of userRecords) {
+        await deleteDoc(
+          doc(db, "artifacts", appId, "public", "data", "records", r.id),
+        );
+      }
+    } else {
+      await deleteDoc(
+        doc(db, "artifacts", appId, "public", "data", "records", id),
+      );
     }
+    setConfirmModal({ isOpen: false, type: null, id: null });
   };
 
   if (loading) {
@@ -366,644 +343,124 @@ export default function App() {
     );
   }
 
-  if (!session)
+  if (!session) {
     return (
-      <LoginPage
+      <LoginView t={t} onLogin={handleLogin} lang={lang} setLang={setLang} />
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+      <Header
         t={t}
+        session={session}
         lang={lang}
         setLang={setLang}
-        form={loginForm}
-        onChange={(f, v) => setLoginForm((p) => ({ ...p, [f]: v, error: "" }))}
-        onLogin={handleLogin}
+        onLogout={handleLogout}
       />
-    );
 
-  return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-10">
-      <header className="bg-white border-b border-slate-100 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Heart className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-base font-red leading-tight">
-                {t.app_title}
-              </h1>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                {session.role === "admin" ? t.admin_panel : t.user_panel}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setLang(lang === "bn" ? "en" : "bn")}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-[10px] font-black uppercase transition-all"
-            >
-              {lang === "bn" ? "English" : "বাংলা"}
-            </button>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-red-500 px-2 py-1"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">{t.logout}</span>
-            </button>
-          </div>
-        </div>
-      </header>
+      <main className="animate-in pb-20">
+        {session.role === "admin" ? (
+          <AdminPanel
+            t={t}
+            users={users}
+            records={records}
+            adminTab={adminTab}
+            setAdminTab={setAdminTab}
+            adminSearch={adminSearch}
+            setAdminSearch={setAdminSearch}
+            viewingUserHistory={viewingUserHistory}
+            setViewingUserHistory={setViewingUserHistory}
+            editingRecordId={editingRecordId}
+            setEditingRecordId={setEditingRecordId}
+            editingUserId={editingUserId}
+            setEditingUserId={setEditingUserId}
+            setConfirmModal={setConfirmModal}
+            lang={lang}
+          />
+        ) : (
+          <UserPanel
+            t={t}
+            users={users}
+            records={records}
+            session={session}
+            userTab={userTab}
+            setUserTab={setUserTab}
+            lang={lang}
+          />
+        )}
+      </main>
 
-      {session.role === "admin" ? (
-        <AdminDashboard
+      {confirmModal.isOpen && (
+        <ConfirmModal
           t={t}
-          lang={lang}
-          users={users}
-          records={records}
-          fbUser={fbUser}
-        />
-      ) : (
-        <UserDashboard
-          t={t}
-          lang={lang}
-          session={session}
-          user={users.find((u) => u.id === session.userId)}
-          records={records.filter((r) => r.userId === session.userId)}
-          onUpdateProfile={handleUpdateProfile}
+          type={confirmModal.type}
+          onCancel={() =>
+            setConfirmModal({ isOpen: false, type: null, id: null })
+          }
+          onConfirm={handleDelete}
         />
       )}
     </div>
   );
 }
 
-// ============================================================
-// ADMIN DASHBOARD
-// ============================================================
-function AdminDashboard({ t, lang, users, records, fbUser }) {
-  const [tab, setTab] = useState("table");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [confirmState, setConfirmState] = useState({
-    isOpen: false,
-    type: null,
-    id: null,
-  });
-  const [entryForm, setEntryForm] = useState({
-    userId: "",
-    date: new Date().toISOString().split("T")[0],
-    weight: "",
-    bpSys: "",
-    bpDia: "",
-    sugar: "",
-    heartRate: "",
-    oxygen: "",
-  });
-  const [entryMsg, setEntryMsg] = useState(null);
-  const [userForm, setUserForm] = useState({
-    username: "",
-    password: "",
-    name: "",
-    age: "",
-    height: "",
-  });
+// --- Components ---
 
-  useEffect(() => {
-    if (entryForm.userId && entryForm.date) {
-      const existing = records.find(
-        (r) => r.userId === entryForm.userId && r.date === entryForm.date,
-      );
-      if (existing) {
-        setEntryForm((prev) => ({
-          ...prev,
-          weight: existing.weight || "",
-          bpSys: existing.bpSys || "",
-          bpDia: existing.bpDia || "",
-          sugar: existing.sugar || "",
-          heartRate: existing.heartRate || "",
-          oxygen: existing.oxygen || "",
-        }));
-      } else {
-        setEntryForm((prev) => ({
-          ...prev,
-          weight: "",
-          bpSys: "",
-          bpDia: "",
-          sugar: "",
-          heartRate: "",
-          oxygen: "",
-        }));
-      }
-    }
-  }, [entryForm.userId, entryForm.date, records]);
-
-  const handleEntrySubmit = async () => {
-    if (!fbUser || !entryForm.userId) return;
-    const payload = {
-      weight: parseFloat(entryForm.weight) || 0,
-      bpSys: parseFloat(entryForm.bpSys) || 0,
-      bpDia: parseFloat(entryForm.bpDia) || 0,
-      sugar: parseFloat(entryForm.sugar) || 0,
-      heartRate: parseFloat(entryForm.heartRate) || 0,
-      oxygen: parseFloat(entryForm.oxygen) || 0,
-    };
-    const existing = records.find(
-      (r) => r.userId === entryForm.userId && r.date === entryForm.date,
-    );
-    try {
-      if (existing) {
-        await updateDoc(
-          doc(db, "artifacts", appId, "public", "data", "records", existing.id),
-          payload,
-        );
-        setEntryMsg({ text: t.updating });
-      } else {
-        await addDoc(
-          collection(db, "artifacts", appId, "public", "data", "records"),
-          { userId: entryForm.userId, date: entryForm.date, ...payload },
-        );
-        setEntryMsg({ text: t.new_entry });
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    setTimeout(() => setEntryMsg(null), 3000);
-  };
-
-  const executeDelete = async () => {
-    if (!fbUser) return;
-    const { type, id } = confirmState;
-    try {
-      if (type === "record")
-        await deleteDoc(
-          doc(db, "artifacts", appId, "public", "data", "records", id),
-        );
-      if (type === "user") {
-        await deleteDoc(
-          doc(db, "artifacts", appId, "public", "data", "users", id),
-        );
-        records
-          .filter((r) => r.userId === id)
-          .forEach(async (r) => {
-            await deleteDoc(
-              doc(db, "artifacts", appId, "public", "data", "records", r.id),
-            );
-          });
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    setConfirmState({ isOpen: false, type: null, id: null });
-  };
-
-  const filteredUsers = users.filter((u) =>
-    u.name?.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
-
+function Header({ t, session, lang, setLang, onLogout }) {
   return (
-    <div className="p-4 max-w-7xl mx-auto">
-      <ConfirmModal
-        isOpen={confirmState.isOpen}
-        title={t.confirm_del}
-        message="ডিলিট নিশ্চিত করুন?"
-        onConfirm={executeDelete}
-        onCancel={() => setConfirmState({ isOpen: false })}
-        t={t}
-      />
-
-      <div className="bg-white rounded-3xl shadow-sm overflow-hidden min-h-[500px]">
-        <div className="flex border-b bg-slate-50/20 px-4 pt-2 overflow-x-auto no-scrollbar">
-          {["table", "entry", "users"].map((id) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest rounded-t-2xl transition-all ${tab === id ? "bg-white text-indigo-700 shadow-sm" : "text-slate-400"}`}
-            >
-              {id === "table"
-                ? t.master_table
-                : id === "entry"
-                  ? t.data_entry
-                  : t.user_mgmt}
-            </button>
-          ))}
+    <header className="bg-white border-b border-slate-100 sticky top-0 z-50 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+            <Heart className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-base font-black leading-tight">
+              {t.app_title}
+            </h1>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              {session.role === "admin" ? t.admin_panel : t.user_panel}
+            </p>
+          </div>
         </div>
-
-        <div className="p-6">
-          {tab === "table" && (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between gap-4">
-                <h2 className="text-xl font-black">{t.master_table}</h2>
-                <div className="relative w-full sm:w-80">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border rounded-xl text-sm"
-                    placeholder={t.search}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    <tr>
-                      <th className="text-left py-4 px-4">{t.name}</th>
-                      <th className="text-left py-4 px-4">{t.weight}</th>
-                      <th className="text-left py-4 px-4">{t.bp}</th>
-                      <th className="text-left py-4 px-4">{t.sugar}</th>
-                      <th className="text-left py-4 px-4">{t.date}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredUsers.map((u) => {
-                      const latest = records
-                        .filter((r) => r.userId === u.id)
-                        .sort((a, b) => b.date.localeCompare(a.date))[0];
-                      return (
-                        <tr key={u.id} className="hover:bg-slate-50">
-                          <td className="py-4 px-4 font-bold text-indigo-600">
-                            {u.name}
-                          </td>
-                          <td className="py-4 px-4">
-                            {latest ? `${latest.weight} ${t.kg}` : "—"}
-                          </td>
-                          <td className="py-4 px-4 font-mono">
-                            {latest ? `${latest.bpSys}/${latest.bpDia}` : "—"}
-                          </td>
-                          <td className="py-4 px-4">
-                            {latest ? latest.sugar : "—"}
-                          </td>
-                          <td className="py-4 px-4 text-xs text-slate-400">
-                            {latest ? latest.date : "—"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {tab === "entry" && (
-            <div className="max-w-2xl mx-auto space-y-6">
-              <h2 className="text-xl font-black">{t.smart_entry}</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-6 rounded-3xl border">
-                <div className="sm:col-span-2">
-                  <FLabel label={t.name} req>
-                    <select
-                      className="w-full p-3 rounded-xl border"
-                      value={entryForm.userId}
-                      onChange={(e) =>
-                        setEntryForm({ ...entryForm, userId: e.target.value })
-                      }
-                    >
-                      <option value="">— {t.select} —</option>
-                      {users.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.name}
-                        </option>
-                      ))}
-                    </select>
-                  </FLabel>
-                </div>
-                <FLabel label={t.date}>
-                  <input
-                    type="date"
-                    className="w-full p-3 rounded-xl border"
-                    value={entryForm.date}
-                    onChange={(e) =>
-                      setEntryForm({ ...entryForm, date: e.target.value })
-                    }
-                  />
-                </FLabel>
-                {[
-                  { k: "weight", l: t.weight },
-                  { k: "bpSys", l: "BP Systolic" },
-                  { k: "bpDia", l: "BP Diastolic" },
-                  { k: "sugar", l: t.sugar },
-                  { k: "heartRate", l: t.pulse },
-                  { k: "oxygen", l: t.oxygen },
-                ].map((f) => (
-                  <FLabel key={f.k} label={f.l}>
-                    <input
-                      type="number"
-                      className="w-full p-3 rounded-xl border"
-                      value={entryForm[f.k]}
-                      onChange={(e) =>
-                        setEntryForm({ ...entryForm, [f.k]: e.target.value })
-                      }
-                    />
-                  </FLabel>
-                ))}
-              </div>
-              {entryMsg && (
-                <div className="p-4 rounded-xl bg-indigo-50 text-indigo-600 font-bold">
-                  {entryMsg.text}
-                </div>
-              )}
-              <button
-                onClick={handleEntrySubmit}
-                className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black uppercase text-xs shadow-lg"
-              >
-                {t.save}
-              </button>
-            </div>
-          )}
-
-          {tab === "users" && (
-            <div className="space-y-8">
-              <div className="bg-slate-50 p-6 rounded-3xl border">
-                <h3 className="text-[10px] font-black uppercase mb-6 text-indigo-500 tracking-widest">
-                  নতুন ইউজার রেজিস্ট্রেশন
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                  {[
-                    { k: "name", l: t.name },
-                    { k: "username", l: t.username },
-                    { k: "password", l: t.password },
-                    { k: "age", l: t.age },
-                    { k: "height", l: t.height },
-                  ].map((f) => (
-                    <FLabel key={f.k} label={f.l}>
-                      <input
-                        className="w-full p-3 rounded-xl border"
-                        value={userForm[f.k]}
-                        onChange={(e) =>
-                          setUserForm({ ...userForm, [f.k]: e.target.value })
-                        }
-                      />
-                    </FLabel>
-                  ))}
-                </div>
-                <button
-                  onClick={async () => {
-                    if (!userForm.name || !userForm.username) return;
-                    await addDoc(
-                      collection(
-                        db,
-                        "artifacts",
-                        appId,
-                        "public",
-                        "data",
-                        "users",
-                      ),
-                      {
-                        ...userForm,
-                        height: parseFloat(userForm.height) || 0,
-                        age: parseInt(userForm.age) || 0,
-                      },
-                    );
-                    setUserForm({
-                      username: "",
-                      password: "",
-                      name: "",
-                      age: "",
-                      height: "",
-                    });
-                  }}
-                  className="mt-6 w-full py-4 bg-indigo-600 text-white font-black rounded-xl uppercase text-xs shadow-md"
-                >
-                  {t.save}
-                </button>
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {users.map((u) => (
-                  <div
-                    key={u.id}
-                    className="p-4 bg-white border rounded-2xl flex justify-between items-center hover:shadow-md transition-all"
-                  >
-                    <div>
-                      <p className="font-black text-slate-700">{u.name}</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                        @{u.username} • {u.height}
-                        {t.cm}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() =>
-                        setConfirmState({
-                          isOpen: true,
-                          type: "user",
-                          id: u.id,
-                        })
-                      }
-                      className="p-2 text-red-400 hover:bg-red-50 rounded-xl"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
-// USER DASHBOARD
-// ============================================================
-function UserDashboard({ t, lang, user, records, onUpdateProfile }) {
-  const [view, setView] = useState("dashboard");
-  const [profileForm, setProfileForm] = useState(user || {});
-  const [isSaved, setIsSaved] = useState(false);
-
-  useEffect(() => {
-    if (user) setProfileForm(user);
-  }, [user]);
-
-  if (!user)
-    return (
-      <div className="p-10 text-center font-bold">ইউজার খুঁজে পাওয়া যায়নি</div>
-    );
-
-  const sorted = [...records].sort((a, b) => b.date.localeCompare(a.date));
-  const latest = sorted[0];
-  const bmi = latest ? calcBMI(latest.weight, user.height) : null;
-  const info = getBMIInfo(bmi, lang);
-
-  return (
-    <div className="max-w-4xl mx-auto px-6 py-10 space-y-10">
-      <div className="flex p-1 bg-white border rounded-2xl w-max mx-auto shadow-sm sticky top-16 z-40">
-        <button
-          onClick={() => setView("dashboard")}
-          className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${view === "dashboard" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400"}`}
-        >
-          {t.dashboard}
-        </button>
-        <button
-          onClick={() => setView("profile")}
-          className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${view === "profile" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400"}`}
-        >
-          {t.profile}
-        </button>
-      </div>
-
-      {view === "dashboard" ? (
-        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4">
-          <section
-            className={`rounded-[3rem] p-12 ring-1 shadow-2xl ${info.ring} ${info.bg} relative overflow-hidden`}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setLang(lang === "bn" ? "en" : "bn")}
+            className="px-3 py-1.5 bg-slate-100 rounded-xl text-[10px] font-black uppercase hover:bg-slate-200 transition-colors"
           >
-            <h2 className="text-4xl font-black text-slate-800 tracking-tighter leading-tight mb-8">
-              {user.name}
-            </h2>
-            <div className="flex items-end gap-6">
-              <span
-                className={`text-9xl font-black leading-none tracking-tighter ${info.text}`}
-              >
-                {bmi || "—"}
-              </span>
-              <div className="pb-4">
-                <p className="text-2xl font-black text-slate-400 tracking-widest">
-                  BMI SCORE
-                </p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  {info.label}
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
-            {statCardsData(t, user, latest).map((c, i) => (
-              <div
-                key={i}
-                className="bg-white rounded-[2rem] p-8 border border-slate-100 hover:shadow-xl transition-all"
-              >
-                <div className="w-12 h-12 bg-slate-50 rounded-xl mb-4 flex items-center justify-center">
-                  <c.i className="w-6 h-6 text-indigo-400" />
-                </div>
-                <p className="text-3xl font-black text-slate-800">
-                  {c.v}
-                  <span className="text-xs text-slate-300 ml-1 uppercase">
-                    {c.u}
-                  </span>
-                </p>
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mt-2">
-                  {c.l}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <section className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
-            <div className="px-10 py-6 border-b flex justify-between items-center">
-              <h3 className="text-xs font-black uppercase tracking-widest">
-                {t.history}
-              </h3>
-              <span className="text-[10px] font-bold text-slate-400">
-                {sorted.length} টি এন্ট্রি
-              </span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">
-                  <tr>
-                    <th className="text-left py-4 px-10">{t.date}</th>
-                    <th className="text-left py-4 px-10">{t.weight}</th>
-                    <th className="text-left py-4 px-10">BMI</th>
-                    <th className="text-left py-4 px-10">{t.bp}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-600 font-bold">
-                  {sorted.map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-50">
-                      <td className="py-6 px-10">{r.date}</td>
-                      <td className="py-6 px-10">
-                        {r.weight}
-                        {t.kg}
-                      </td>
-                      <td className="py-6 px-10">
-                        {calcBMI(r.weight, user.height)}
-                      </td>
-                      <td className="py-6 px-10 font-mono text-xs">
-                        {r.bpSys}/{r.bpDia}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+            {lang === "bn" ? "English" : "বাংলা"}
+          </button>
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-red-500 px-2 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">{t.logout}</span>
+          </button>
         </div>
-      ) : (
-        <div className="bg-white rounded-[3rem] border shadow-xl p-12 animate-in zoom-in-95">
-          <h2 className="text-3xl font-black text-center mb-10">{t.profile}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-            <FLabel label={t.name}>
-              <input
-                className="w-full p-4 rounded-2xl bg-slate-50 border font-bold"
-                value={profileForm.name}
-                onChange={(e) =>
-                  setProfileForm({ ...profileForm, name: e.target.value })
-                }
-              />
-            </FLabel>
-            <FLabel label={t.age}>
-              <input
-                type="number"
-                className="w-full p-4 rounded-2xl bg-slate-50 border font-bold"
-                value={profileForm.age}
-                onChange={(e) =>
-                  setProfileForm({ ...profileForm, age: e.target.value })
-                }
-              />
-            </FLabel>
-            <FLabel label={t.height}>
-              <input
-                type="number"
-                className="w-full p-4 rounded-2xl bg-slate-50 border font-bold"
-                value={profileForm.height}
-                onChange={(e) =>
-                  setProfileForm({ ...profileForm, height: e.target.value })
-                }
-              />
-            </FLabel>
-            <FLabel label={t.password}>
-              <input
-                type="password"
-                className="w-full p-4 rounded-2xl bg-slate-50 border font-bold"
-                value={profileForm.password}
-                onChange={(e) =>
-                  setProfileForm({ ...profileForm, password: e.target.value })
-                }
-              />
-            </FLabel>
-          </div>
-          <div className="mt-10 flex flex-col items-center gap-4">
-            <button
-              onClick={() => {
-                onUpdateProfile(user.id, profileForm);
-                setIsSaved(true);
-                setTimeout(() => setIsSaved(false), 2000);
-              }}
-              className="w-full sm:w-auto px-12 py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center gap-2"
-            >
-              <Save className="w-4 h-4" /> {t.save}
-            </button>
-            {isSaved && (
-              <p className="text-emerald-500 font-black uppercase text-[10px] tracking-[0.3em] flex items-center gap-1">
-                <CheckCircle className="w-4 h-4" /> Success
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+      </div>
+    </header>
   );
 }
 
-// ============================================================
-// UI COMPONENTS
-// ============================================================
-function LoginPage({ t, lang, setLang, form, onChange, onLogin }) {
+function LoginView({ t, onLogin, lang, setLang }) {
+  const [u, setU] = useState("");
+  const [p, setP] = useState("");
+  const [err, setErr] = useState("");
+
+  const submit = () => {
+    const error = onLogin(u, p);
+    if (error) setErr(error);
+  };
+
   return (
-    <div className="min-h-screen bg-indigo-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-indigo-950 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="flex justify-end mb-4">
           <button
             onClick={() => setLang(lang === "bn" ? "en" : "bn")}
-            className="text-white text-[10px] font-black uppercase px-4 py-2 border border-white/20 rounded-xl"
+            className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl text-[10px] font-black uppercase transition-all"
           >
             {lang === "bn" ? "English" : "বাংলা"}
           </button>
@@ -1014,27 +471,35 @@ function LoginPage({ t, lang, setLang, form, onChange, onLogin }) {
         </div>
         <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl space-y-6">
           <h2 className="text-xl font-bold">{t.welcome}</h2>
-          <FLabel label={t.username}>
+          <div>
+            <label className="text-[10px] font-black uppercase text-slate-500">
+              {t.username}
+            </label>
             <input
-              className="w-full p-4 border rounded-2xl outline-none"
-              value={form.username}
-              onChange={(e) => onChange("username", e.target.value)}
+              value={u}
+              onChange={(e) => setU(e.target.value)}
+              className="w-full p-4 bg-slate-50 border rounded-2xl mt-1 focus:ring-2 focus:ring-indigo-100 outline-none"
             />
-          </FLabel>
-          <FLabel label={t.password}>
+          </div>
+          <div>
+            <label className="text-[10px] font-black uppercase text-slate-500">
+              {t.password}
+            </label>
             <input
               type="password"
-              className="w-full p-4 border rounded-2xl outline-none"
-              value={form.password}
-              onChange={(e) => onChange("password", e.target.value)}
+              value={p}
+              onChange={(e) => setP(e.target.value)}
+              className="w-full p-4 bg-slate-50 border rounded-2xl mt-1 focus:ring-2 focus:ring-indigo-100 outline-none"
             />
-          </FLabel>
-          {form.error && (
-            <div className="text-red-500 text-xs font-bold">{form.error}</div>
+          </div>
+          {err && (
+            <div className="text-red-500 text-xs font-bold bg-red-50 p-3 rounded-lg">
+              {err}
+            </div>
           )}
           <button
-            onClick={onLogin}
-            className="w-full py-4 bg-indigo-600 text-white font-black uppercase text-xs rounded-2xl shadow-lg"
+            onClick={submit}
+            className="w-full py-4 bg-indigo-600 text-white font-black uppercase text-xs rounded-2xl shadow-lg active:scale-[0.98] transition-all"
           >
             {t.login}
           </button>
@@ -1044,53 +509,996 @@ function LoginPage({ t, lang, setLang, form, onChange, onLogin }) {
   );
 }
 
-function ConfirmModal({ isOpen, title, message, onConfirm, onCancel, t }) {
-  if (!isOpen) return null;
+function AdminPanel({
+  t,
+  users,
+  records,
+  adminTab,
+  setAdminTab,
+  adminSearch,
+  setAdminSearch,
+  viewingUserHistory,
+  setViewingUserHistory,
+  editingRecordId,
+  setEditingRecordId,
+  editingUserId,
+  setEditingUserId,
+  setConfirmModal,
+  lang,
+}) {
+  if (viewingUserHistory) {
+    const user = users.find((u) => u.id === viewingUserHistory);
+    return (
+      <AdminUserHistory
+        t={t}
+        user={user}
+        records={records.filter((r) => r.userId === viewingUserHistory)}
+        onBack={() => setViewingUserHistory(null)}
+        editingRecordId={editingRecordId}
+        setEditingRecordId={setEditingRecordId}
+        setConfirmModal={setConfirmModal}
+      />
+    );
+  }
+
+  const filteredUsers = users.filter((u) =>
+    u.name?.toLowerCase().includes(adminSearch.toLowerCase()),
+  );
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl w-full max-w-sm p-8 shadow-2xl">
-        <h3 className="text-lg font-bold mb-2">{title}</h3>
-        <p className="text-slate-500 text-sm mb-6">{message}</p>
-        <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-3 text-sm font-bold bg-slate-100 rounded-xl"
-          >
-            বাতিল
-          </button>
-          <button
-            onClick={onConfirm}
-            className="flex-1 py-3 text-sm font-bold text-white bg-red-500 rounded-xl shadow-lg"
-          >
-            ডিলিট
-          </button>
+    <div className="p-4 max-w-7xl mx-auto space-y-6">
+      <div className="bg-white rounded-3xl shadow-sm overflow-hidden min-h-[500px] border border-slate-200">
+        <div className="flex border-b bg-slate-50/50 px-4 pt-2 overflow-x-auto scrollbar-hide">
+          {["table", "entry", "users"].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => {
+                setAdminTab(tab);
+                setEditingUserId(null);
+              }}
+              className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest rounded-t-2xl transition-all whitespace-nowrap ${adminTab === tab ? "bg-white text-indigo-700 border-x border-t" : "text-slate-400"}`}
+            >
+              {tab === "table"
+                ? t.master_table
+                : tab === "entry"
+                  ? t.data_entry
+                  : t.user_mgmt}
+            </button>
+          ))}
+        </div>
+        <div className="p-4 sm:p-6">
+          {adminTab === "table" && (
+            <MasterTable
+              t={t}
+              users={filteredUsers}
+              records={records}
+              adminSearch={adminSearch}
+              setAdminSearch={setAdminSearch}
+              onViewHistory={setViewingUserHistory}
+              editingRecordId={editingRecordId}
+              setEditingRecordId={setEditingRecordId}
+              setConfirmModal={setConfirmModal}
+            />
+          )}
+          {adminTab === "entry" && (
+            <DataEntryForm t={t} users={users} records={records} />
+          )}
+          {adminTab === "users" && (
+            <UserManagement
+              t={t}
+              users={users}
+              editingUserId={editingUserId}
+              setEditingUserId={setEditingUserId}
+              setConfirmModal={setConfirmModal}
+            />
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function FLabel({ label, req, children }) {
+function MasterTable({
+  t,
+  users,
+  records,
+  adminSearch,
+  setAdminSearch,
+  onViewHistory,
+  editingRecordId,
+  setEditingRecordId,
+  setConfirmModal,
+}) {
   return (
-    <div className="space-y-2">
-      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">
-        {label} {req && "*"}
-      </label>
-      {children}
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between gap-4">
+        <h2 className="text-xl font-black">{t.master_table}</h2>
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+            placeholder={t.search}
+            value={adminSearch}
+            onChange={(e) => setAdminSearch(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            <tr>
+              <th className="text-left py-4 px-4">{t.name}</th>
+              <th className="text-left py-4 px-4">{t.weight}</th>
+              <th className="text-left py-4 px-4">{t.bp}</th>
+              <th className="text-left py-4 px-4">{t.sugar}</th>
+              <th className="text-left py-4 px-4">{t.pulse}</th>
+              <th className="text-left py-4 px-4">{t.date}</th>
+              <th className="text-right py-4 px-4">{t.actions}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {users.map((u) => {
+              const userRecs = records
+                .filter((r) => r.userId === u.id)
+                .sort((a, b) => b.date.localeCompare(a.date));
+              const latest = userRecs[0];
+              return (
+                <RecordRow
+                  key={u.id}
+                  t={t}
+                  user={u}
+                  record={latest}
+                  onViewHistory={() => onViewHistory(u.id)}
+                  isEditing={editingRecordId === latest?.id}
+                  setEditingRecordId={setEditingRecordId}
+                  setConfirmModal={setConfirmModal}
+                />
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
-const statCardsData = (t, user, latest) => [
-  { l: t.weight, v: latest ? latest.weight : "—", u: t.kg, i: Scale },
-  { l: t.height, v: user.height, u: t.cm, i: Ruler },
-  { l: t.pulse, v: latest ? latest.heartRate : "—", u: "bpm", i: Activity },
-  { l: t.sugar, v: latest ? latest.sugar : "—", u: "mmol/L", i: Droplets },
-  {
-    l: t.bp,
-    v: latest ? `${latest.bpSys}/${latest.bpDia}` : "—",
-    u: "mmHg",
-    i: Activity,
-  },
-  { l: t.oxygen, v: latest ? latest.oxygen : "—", u: "%", i: Wind },
-];
+function RecordRow({
+  t,
+  user,
+  record,
+  onViewHistory,
+  isEditing,
+  setEditingRecordId,
+  setConfirmModal,
+}) {
+  const [local, setLocal] = useState(record || {});
+
+  useEffect(() => {
+    setLocal(record || {});
+  }, [record]);
+
+  const save = async () => {
+    await updateDoc(
+      doc(db, "artifacts", appId, "public", "data", "records", record.id),
+      {
+        weight: parseFloat(local.weight) || 0,
+        bpSys: parseInt(local.bpSys) || 0,
+        bpDia: parseInt(local.bpDia) || 0,
+        sugar: parseFloat(local.sugar) || 0,
+        heartRate: parseInt(local.heartRate) || 0,
+      },
+    );
+    setEditingRecordId(null);
+  };
+
+  return (
+    <tr className="hover:bg-slate-50/50 transition-colors">
+      <td className="py-4 px-4">
+        <button
+          onClick={onViewHistory}
+          className="font-bold text-indigo-600 hover:underline text-left"
+        >
+          {user.name}
+        </button>
+      </td>
+      <td className="py-4 px-4">
+        {isEditing ? (
+          <input
+            type="number"
+            step="0.1"
+            className="w-16 p-1 border rounded"
+            value={local.weight}
+            onChange={(e) => setLocal({ ...local, weight: e.target.value })}
+          />
+        ) : record ? (
+          record.weight + t.kg
+        ) : (
+          "—"
+        )}
+      </td>
+      <td className="py-4 px-4 font-mono">
+        {isEditing ? (
+          <div className="flex gap-1 items-center">
+            <input
+              type="number"
+              className="w-12 p-1 border rounded"
+              value={local.bpSys}
+              onChange={(e) => setLocal({ ...local, bpSys: e.target.value })}
+            />
+            <span>/</span>
+            <input
+              type="number"
+              className="w-12 p-1 border rounded"
+              value={local.bpDia}
+              onChange={(e) => setLocal({ ...local, bpDia: e.target.value })}
+            />
+          </div>
+        ) : record ? (
+          `${record.bpSys}/${record.bpDia}`
+        ) : (
+          "—"
+        )}
+      </td>
+      <td className="py-4 px-4">
+        {isEditing ? (
+          <input
+            type="number"
+            step="0.1"
+            className="w-16 p-1 border rounded"
+            value={local.sugar}
+            onChange={(e) => setLocal({ ...local, sugar: e.target.value })}
+          />
+        ) : (
+          record?.sugar || "—"
+        )}
+      </td>
+      <td className="py-4 px-4">
+        {isEditing ? (
+          <input
+            type="number"
+            className="w-16 p-1 border rounded"
+            value={local.heartRate}
+            onChange={(e) => setLocal({ ...local, heartRate: e.target.value })}
+          />
+        ) : (
+          record?.heartRate || "—"
+        )}
+      </td>
+      <td className="py-4 px-4 text-xs text-slate-400">
+        {record ? record.date : "—"}
+      </td>
+      <td className="py-4 px-4 text-right">
+        <div className="flex justify-end gap-1">
+          {isEditing ? (
+            <>
+              <button
+                onClick={save}
+                className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg"
+              >
+                <Check className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setEditingRecordId(null)}
+                className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </>
+          ) : record ? (
+            <>
+              <button
+                onClick={() => setEditingRecordId(record.id)}
+                className="p-2 text-indigo-400 hover:bg-indigo-50 rounded-lg"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() =>
+                  setConfirmModal({
+                    isOpen: true,
+                    type: "record",
+                    id: record.id,
+                  })
+                }
+                className="p-2 text-red-400 hover:bg-red-50 rounded-lg"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </>
+          ) : null}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function DataEntryForm({ t, users, records }) {
+  const [userId, setUserId] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [form, setForm] = useState({
+    weight: "",
+    bpSys: "",
+    bpDia: "",
+    sugar: "",
+    heartRate: "",
+  });
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    const existing = records.find(
+      (r) => r.userId === userId && r.date === date,
+    );
+    if (existing) {
+      setForm({
+        weight: existing.weight || "",
+        bpSys: existing.bpSys || "",
+        bpDia: existing.bpDia || "",
+        sugar: existing.sugar || "",
+        heartRate: existing.heartRate || "",
+      });
+    } else {
+      setForm({ weight: "", bpSys: "", bpDia: "", sugar: "", heartRate: "" });
+    }
+  }, [userId, date, records]);
+
+  const save = async () => {
+    if (!userId || !date) return;
+    const payload = {
+      userId,
+      date,
+      weight: parseFloat(form.weight) || 0,
+      bpSys: parseInt(form.bpSys) || 0,
+      bpDia: parseInt(form.bpDia) || 0,
+      sugar: parseFloat(form.sugar) || 0,
+      heartRate: parseInt(form.heartRate) || 0,
+    };
+    const existing = records.find(
+      (r) => r.userId === userId && r.date === date,
+    );
+    if (existing) {
+      await updateDoc(
+        doc(db, "artifacts", appId, "public", "data", "records", existing.id),
+        payload,
+      );
+    } else {
+      await addDoc(
+        collection(db, "artifacts", appId, "public", "data", "records"),
+        payload,
+      );
+    }
+    setMsg(t.success);
+    setTimeout(() => setMsg(""), 2000);
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6">
+      <h2 className="text-xl font-black">{t.smart_entry}</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-6 rounded-3xl border">
+        <div className="sm:col-span-2">
+          <label className="text-[10px] font-black uppercase text-slate-500 ml-1">
+            {t.name} *
+          </label>
+          <select
+            className="w-full p-3 rounded-xl border mt-1 outline-none"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+          >
+            <option value="">— {t.select} —</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] font-black uppercase text-slate-500 ml-1">
+            {t.date}
+          </label>
+          <input
+            type="date"
+            className="w-full p-3 rounded-xl border mt-1 outline-none"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="text-[10px] font-black uppercase text-slate-500 ml-1">
+            {t.weight}
+          </label>
+          <input
+            type="number"
+            step="0.1"
+            className="w-full p-3 rounded-xl border mt-1 outline-none"
+            value={form.weight}
+            onChange={(e) => setForm({ ...form, weight: e.target.value })}
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="text-[10px] font-black uppercase text-slate-500 ml-1">
+            {t.bp}
+          </label>
+          <div className="flex items-center gap-2 mt-1">
+            <input
+              className="w-20 p-3 rounded-xl border text-center outline-none"
+              placeholder="SYS"
+              value={form.bpSys}
+              onChange={(e) => setForm({ ...form, bpSys: e.target.value })}
+            />
+            <span className="font-black text-slate-300 text-xl">/</span>
+            <input
+              className="w-20 p-3 rounded-xl border text-center outline-none"
+              placeholder="DIA"
+              value={form.bpDia}
+              onChange={(e) => setForm({ ...form, bpDia: e.target.value })}
+            />
+            <span className="text-xs font-bold text-slate-400 uppercase ml-2">
+              mmHg
+            </span>
+          </div>
+        </div>
+        <div>
+          <label className="text-[10px] font-black uppercase text-slate-500 ml-1">
+            {t.sugar}
+          </label>
+          <input
+            type="number"
+            step="0.1"
+            className="w-full p-3 rounded-xl border mt-1 outline-none"
+            value={form.sugar}
+            onChange={(e) => setForm({ ...form, sugar: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-[10px] font-black uppercase text-slate-500 ml-1">
+            {t.pulse}
+          </label>
+          <input
+            type="number"
+            className="w-full p-3 rounded-xl border mt-1 outline-none"
+            value={form.heartRate}
+            onChange={(e) => setForm({ ...form, heartRate: e.target.value })}
+          />
+        </div>
+      </div>
+      {msg && (
+        <div className="p-4 rounded-xl bg-indigo-50 text-indigo-600 font-bold text-center">
+          {msg}
+        </div>
+      )}
+      <button
+        onClick={save}
+        className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black uppercase text-xs shadow-lg hover:bg-indigo-700 active:scale-95 transition-all"
+      >
+        {t.save}
+      </button>
+    </div>
+  );
+}
+
+function UserManagement({
+  t,
+  users,
+  editingUserId,
+  setEditingUserId,
+  setConfirmModal,
+}) {
+  const [form, setForm] = useState({
+    name: "",
+    username: "",
+    password: "",
+    age: "",
+    ft: "",
+    in: "",
+  });
+
+  useEffect(() => {
+    if (editingUserId) {
+      const u = users.find((x) => x.id === editingUserId);
+      const h = cmToFtIn(u.height);
+      setForm({
+        name: u.name,
+        username: u.username,
+        password: u.password,
+        age: u.age,
+        ft: h.ft,
+        in: h.in,
+      });
+    } else {
+      setForm({
+        name: "",
+        username: "",
+        password: "",
+        age: "",
+        ft: "",
+        in: "",
+      });
+    }
+  }, [editingUserId, users]);
+
+  const save = async () => {
+    const payload = {
+      name: form.name,
+      username: form.username,
+      password: form.password,
+      age: parseInt(form.age) || 0,
+      height: parseFloat(ftInToCm(form.ft, form.in)),
+    };
+    if (!payload.name || !payload.username) return;
+
+    if (editingUserId) {
+      await updateDoc(
+        doc(db, "artifacts", appId, "public", "data", "users", editingUserId),
+        payload,
+      );
+      setEditingUserId(null);
+    } else {
+      await addDoc(
+        collection(db, "artifacts", appId, "public", "data", "users"),
+        payload,
+      );
+    }
+    setForm({ name: "", username: "", password: "", age: "", ft: "", in: "" });
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="bg-slate-50 p-6 rounded-3xl border">
+        <h3 className="text-[10px] font-black uppercase mb-6 text-indigo-500 tracking-widest">
+          {editingUserId ? "ইউজার আপডেট করুন" : "নতুন ইউজার রেজিস্ট্রেশন"}
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+          <div className="lg:col-span-2">
+            <label className="text-[10px] font-black uppercase text-slate-500 ml-1">
+              {t.name}
+            </label>
+            <input
+              className="w-full p-3 rounded-xl border mt-1 outline-none"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-black uppercase text-slate-500 ml-1">
+              {t.username}
+            </label>
+            <input
+              className="w-full p-3 rounded-xl border mt-1 outline-none"
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-black uppercase text-slate-500 ml-1">
+              {t.password}
+            </label>
+            <input
+              type="password"
+              className="w-full p-3 rounded-xl border mt-1 outline-none"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-black uppercase text-slate-500 ml-1">
+              {t.age}
+            </label>
+            <input
+              type="number"
+              className="w-full p-3 rounded-xl border mt-1 outline-none"
+              value={form.age}
+              onChange={(e) => setForm({ ...form, age: e.target.value })}
+            />
+          </div>
+          <div className="lg:col-span-2">
+            <label className="text-[10px] font-black uppercase text-slate-500 ml-1">
+              {t.height}
+            </label>
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                className="w-16 p-3 rounded-xl border text-center outline-none"
+                placeholder="0"
+                value={form.ft}
+                onChange={(e) => setForm({ ...form, ft: e.target.value })}
+              />
+              <span className="text-xs font-bold text-slate-500">{t.ft}</span>
+              <input
+                className="w-16 p-3 rounded-xl border text-center outline-none"
+                placeholder="0"
+                value={form.in}
+                onChange={(e) => setForm({ ...form, in: e.target.value })}
+              />
+              <span className="text-xs font-bold text-slate-500">{t.in}</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-2 mt-6">
+          <button
+            onClick={save}
+            className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-xl uppercase text-xs shadow-md active:scale-95 transition-all"
+          >
+            {editingUserId ? t.update : t.save}
+          </button>
+          {editingUserId && (
+            <button
+              onClick={() => setEditingUserId(null)}
+              className="px-6 py-4 bg-slate-200 text-slate-600 font-black rounded-xl uppercase text-xs"
+            >
+              {t.cancel}
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {users.map((u) => {
+          const hu = cmToFtIn(u.height);
+          return (
+            <div
+              key={u.id}
+              className="p-4 bg-white border border-slate-100 rounded-2xl flex justify-between items-center hover:shadow-md transition-all"
+            >
+              <div>
+                <p className="font-black text-slate-700">{u.name}</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                  @{u.username} • {hu.ft}
+                  {t.ft} {hu.in}
+                  {t.in}
+                </p>
+              </div>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setEditingUserId(u.id)}
+                  className="p-2 text-indigo-400 hover:bg-indigo-50 rounded-lg transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() =>
+                    setConfirmModal({ isOpen: true, type: "user", id: u.id })
+                  }
+                  className="p-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AdminUserHistory({
+  t,
+  user,
+  records,
+  onBack,
+  editingRecordId,
+  setEditingRecordId,
+  setConfirmModal,
+}) {
+  const sortedRecords = useMemo(
+    () => [...records].sort((a, b) => b.date.localeCompare(a.date)),
+    [records],
+  );
+  const hu = cmToFtIn(user?.height);
+
+  return (
+    <div className="p-4 max-w-7xl mx-auto">
+      <div className="bg-white rounded-3xl shadow-sm overflow-hidden p-4 sm:p-6 animate-in border border-slate-200">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-4 w-full">
+            <button
+              onClick={onBack}
+              className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center shrink-0 hover:bg-slate-200 transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6 text-slate-600" />
+            </button>
+            <div>
+              <h2 className="text-xl font-black">
+                {user?.name} - {t.history}
+              </h2>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                @{user?.username} • {hu.ft}
+                {t.ft} {hu.in}
+                {t.in}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onBack}
+            className="w-full sm:w-auto px-6 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg"
+          >
+            {t.back}
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <tr>
+                <th className="text-left py-4 px-6">{t.date}</th>
+                <th className="text-left py-4 px-6">{t.weight}</th>
+                <th className="text-left py-4 px-6">BMI</th>
+                <th className="text-left py-4 px-6">{t.bp}</th>
+                <th className="text-left py-4 px-6">{t.sugar}</th>
+                <th className="text-left py-4 px-6">{t.pulse}</th>
+                <th className="text-right py-4 px-6">{t.actions}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {sortedRecords.map((r) => (
+                <RecordRow
+                  key={r.id}
+                  t={t}
+                  user={user}
+                  record={r}
+                  isEditing={editingRecordId === r.id}
+                  setEditingRecordId={setEditingRecordId}
+                  setConfirmModal={setConfirmModal}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UserPanel({ t, users, records, session, userTab, setUserTab, lang }) {
+  const user = users.find((u) => u.id === session.userId);
+  const userRecs = records
+    .filter((r) => r.userId === session.userId)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const latest = userRecs[0];
+  const bmi = latest ? calcBMI(latest.weight, user?.height) : null;
+  const info = getBMIInfo(bmi, lang);
+  const hu = cmToFtIn(user?.height);
+
+  const [profileForm, setProfileForm] = useState(user || {});
+  const [successMsg, setSuccessMsg] = useState(false);
+
+  useEffect(() => {
+    if (user) setProfileForm(user);
+  }, [user]);
+
+  const updateProfile = async () => {
+    const payload = {
+      name: profileForm.name,
+      age: parseInt(profileForm.age) || 0,
+      height: parseFloat(ftInToCm(profileForm.ft, profileForm.in)),
+      password: profileForm.password,
+    };
+    await updateDoc(
+      doc(db, "artifacts", appId, "public", "data", "users", user.id),
+      payload,
+    );
+    setSuccessMsg(true);
+    setTimeout(() => setSuccessMsg(false), 2000);
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto px-6 py-10 space-y-10">
+      <div className="flex p-1 bg-white border rounded-2xl w-max mx-auto shadow-sm sticky top-20 z-40">
+        <button
+          onClick={() => setUserTab("dashboard")}
+          className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${userTab === "dashboard" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400"}`}
+        >
+          <div className="flex items-center gap-2">
+            <LayoutDashboard className="w-4 h-4" />
+            {t.dashboard}
+          </div>
+        </button>
+        <button
+          onClick={() => setUserTab("profile")}
+          className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${userTab === "profile" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400"}`}
+        >
+          <div className="flex items-center gap-2">
+            <UserIcon className="w-4 h-4" />
+            {t.profile}
+          </div>
+        </button>
+      </div>
+
+      {userTab === "dashboard" ? (
+        <div className="space-y-10 animate-in">
+          <section
+            className={`rounded-[3rem] p-8 sm:p-12 ring-1 shadow-2xl ${info.ring} ${info.bg} relative overflow-hidden transition-all duration-500`}
+          >
+            <div className="relative z-10">
+              <h2 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tighter mb-8">
+                {user?.name}
+              </h2>
+              <div className="flex items-end gap-6">
+                <span
+                  className={`text-7xl sm:text-9xl font-black leading-none tracking-tighter ${info.text}`}
+                >
+                  {bmi || "—"}
+                </span>
+                <div className="pb-2 sm:pb-4">
+                  <p className="text-lg sm:text-2xl font-black text-slate-400 uppercase tracking-widest leading-none mb-1">
+                    BMI SCORE
+                  </p>
+                  <p className="text-xs font-bold text-slate-500 uppercase">
+                    {info.label}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+            <StatCard
+              label={t.weight}
+              value={latest?.weight || "—"}
+              unit={t.kg}
+              icon={<Scale className="w-5 h-5 text-indigo-400" />}
+            />
+            <StatCard
+              label={t.height}
+              value={`${hu.ft}${t.ft} ${hu.in}${t.in}`}
+              unit=""
+              icon={<Ruler className="w-5 h-5 text-indigo-400" />}
+            />
+            <StatCard
+              label={t.pulse}
+              value={latest?.heartRate || "—"}
+              unit="bpm"
+              icon={<Activity className="w-5 h-5 text-indigo-400" />}
+            />
+            <StatCard
+              label={t.sugar}
+              value={latest?.sugar || "—"}
+              unit="mmol/L"
+              icon={<Droplets className="w-5 h-5 text-indigo-400" />}
+            />
+            <StatCard
+              label={t.bp}
+              value={latest ? `${latest.bpSys}/${latest.bpDia}` : "—"}
+              unit="mmHg"
+              icon={<Activity className="w-5 h-5 text-indigo-400" />}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-[3rem] border shadow-xl p-8 sm:p-12 animate-in">
+          <h2 className="text-3xl font-black text-center mb-10">{t.profile}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+            <div>
+              <label className="text-[10px] font-black uppercase text-slate-500 ml-1">
+                {t.name}
+              </label>
+              <input
+                className="w-full p-4 rounded-2xl bg-slate-50 border font-bold outline-none focus:ring-2 focus:ring-indigo-100"
+                value={profileForm.name || ""}
+                onChange={(e) =>
+                  setProfileForm({ ...profileForm, name: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-black uppercase text-slate-500 ml-1">
+                {t.age}
+              </label>
+              <input
+                type="number"
+                className="w-full p-4 rounded-2xl bg-slate-50 border font-bold outline-none focus:ring-2 focus:ring-indigo-100"
+                value={profileForm.age || ""}
+                onChange={(e) =>
+                  setProfileForm({ ...profileForm, age: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-black uppercase text-slate-500 ml-1">
+                {t.height}
+              </label>
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  className="w-16 p-4 rounded-2xl bg-slate-50 border font-bold text-center outline-none"
+                  value={cmToFtIn(profileForm.height).ft}
+                  onChange={(e) =>
+                    setProfileForm({
+                      ...profileForm,
+                      height: ftInToCm(
+                        e.target.value,
+                        cmToFtIn(profileForm.height).in,
+                      ),
+                    })
+                  }
+                />
+                <span className="text-xs font-bold text-slate-500">{t.ft}</span>
+                <input
+                  className="w-16 p-4 rounded-2xl bg-slate-50 border font-bold text-center outline-none"
+                  value={cmToFtIn(profileForm.height).in}
+                  onChange={(e) =>
+                    setProfileForm({
+                      ...profileForm,
+                      height: ftInToCm(
+                        cmToFtIn(profileForm.height).ft,
+                        e.target.value,
+                      ),
+                    })
+                  }
+                />
+                <span className="text-xs font-bold text-slate-500">{t.in}</span>
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-black uppercase text-slate-500 ml-1">
+                {t.password}
+              </label>
+              <input
+                type="password"
+                className="w-full p-4 rounded-2xl bg-slate-50 border font-bold outline-none focus:ring-2 focus:ring-indigo-100"
+                value={profileForm.password || ""}
+                onChange={(e) =>
+                  setProfileForm({ ...profileForm, password: e.target.value })
+                }
+              />
+            </div>
+          </div>
+          <div className="mt-10 flex flex-col items-center gap-4">
+            <button
+              onClick={updateProfile}
+              className="px-12 py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl flex items-center gap-2 hover:bg-indigo-700 active:scale-95 transition-all"
+            >
+              <Save className="w-4 h-4" /> {t.save}
+            </button>
+            {successMsg && (
+              <div className="text-emerald-500 font-black uppercase text-[10px] animate-bounce">
+                {t.success}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatCard({ label, value, unit, icon }) {
+  return (
+    <div className="bg-white rounded-[2rem] p-6 border transition-all hover:shadow-lg">
+      <div className="w-10 h-10 bg-slate-50 rounded-xl mb-4 flex items-center justify-center">
+        {icon}
+      </div>
+      <p className="text-2xl font-black">
+        {value}
+        <span className="text-[10px] text-slate-300 ml-1">{unit}</span>
+      </p>
+      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mt-2">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function ConfirmModal({ t, type, onCancel, onConfirm }) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+      <div className="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl animate-in">
+        <h3 className="text-lg font-bold mb-2">{t.confirm_del}</h3>
+        <p className="text-slate-500 text-sm mb-6">
+          {type === "user"
+            ? "ইউজার এবং তার সব রেকর্ড ডিলিট হবে।"
+            : "এই রেকর্ডটি ডিলিট হবে।"}
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-3 bg-slate-100 rounded-xl font-bold hover:bg-slate-200 transition-colors"
+          >
+            {t.cancel}
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-3 text-white bg-red-500 rounded-xl font-bold hover:bg-red-600 transition-colors"
+          >
+            {t.delete}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
